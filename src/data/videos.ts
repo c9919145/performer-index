@@ -156,11 +156,35 @@ function buildVideos(): Video[] {
 export const videos: Video[] = buildVideos();
 
 /**
- * Videos for a performer, newest-most-viewed first. Returns an empty array for
- * an unknown slug so callers don't need to null-check.
+ * Videos indexed by performer slug.
+ *
+ * `getVideosForPerformer` is called on every profile render, so a linear scan
+ * of the whole dataset per call would be O(videos) repeated work. Build the
+ * index lazily on first use (module init cost stays out of the critical path)
+ * and sort each bucket once, descending by views.
+ */
+let videosByPerformer: Map<string, Video[]> | null = null;
+
+function ensureIndex(): Map<string, Video[]> {
+  if (videosByPerformer) return videosByPerformer;
+  const index = new Map<string, Video[]>();
+  for (const video of videos) {
+    const bucket = index.get(video.performerSlug);
+    if (bucket) bucket.push(video);
+    else index.set(video.performerSlug, [video]);
+  }
+  for (const bucket of index.values()) {
+    bucket.sort((a, b) => b.views - a.views);
+  }
+  videosByPerformer = index;
+  return index;
+}
+
+/**
+ * Videos for a performer, most-viewed first. Returns an empty array for an
+ * unknown slug so callers don't need to null-check. Served from a prebuilt
+ * index after the first call.
  */
 export function getVideosForPerformer(slug: string): Video[] {
-  return videos
-    .filter((v) => v.performerSlug === slug)
-    .sort((a, b) => b.views - a.views);
+  return ensureIndex().get(slug) ?? [];
 }

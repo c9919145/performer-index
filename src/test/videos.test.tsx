@@ -67,6 +67,25 @@ describe("video data layer", () => {
     expect(getVideosForPerformer("no-such-performer-zzz")).toEqual([]);
   });
 
+  it("keeps view ordering stable across repeated lookups", () => {
+    // The lookup is backed by a shared index built lazily on first call.
+    // Repeating the lookup must not disturb the sort order.
+    const slug = performers[1].slug;
+    const first = getVideosForPerformer(slug).map((v) => v.id);
+    for (let i = 0; i < 5; i++) getVideosForPerformer(slug);
+    expect(getVideosForPerformer(slug).map((v) => v.id)).toEqual(first);
+    const views = getVideosForPerformer(slug).map((v) => v.views);
+    expect(views).toEqual([...views].sort((a, b) => b - a));
+  });
+
+  it("does not return the same array instance for different performers", () => {
+    const a = getVideosForPerformer(performers[0].slug);
+    const b = getVideosForPerformer(performers[2].slug);
+    expect(a).not.toBe(b);
+    expect(a.every((v) => v.performerSlug === performers[0].slug)).toBe(true);
+    expect(b.every((v) => v.performerSlug === performers[2].slug)).toBe(true);
+  });
+
   it("produces positive durations, views and timestamps", () => {
     for (const v of videos) {
       expect(v.durationSeconds).toBeGreaterThan(0);
