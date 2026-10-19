@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens (Tailwind v4 `@theme`). These replace the old JS
+   `tailwind.config.js`; every token below becomes a utility class, e.g.
+   `--color-accent` -> `text-accent` / `bg-accent` / `border-accent`.
+--------------------------------------------------------------------------- */
+@theme {
+  --color-accent: #e87500;
+  --color-accent-dark: #c96400;
+
+  --color-ink: #333333;
+  --color-ink-soft: #666666;
+  --color-ink-faint: #999999;
+
+  --color-chrome: #f2f2f2;
+  --color-chrome-line: #d9d9d9;
+  --color-chrome-dark: #4d4d4d;
+
+  --font-sans: "Helvetica Neue", Helvetica, Arial, system-ui, -apple-system,
+    sans-serif;
+
+  --max-width-page: 1250px;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-white text-ink font-sans text-sm antialiased;
+  }
+
+  /* Clear, consistent focus indicators for keyboard users */
+  :where(a, button, input, select, [tabindex]):focus-visible {
+    @apply outline-hidden ring-2 ring-accent ring-offset-1 ring-offset-white;
+  }
+}
+
+@layer components {
+  /* Button chrome matching the reference's pill/box filter controls */
+  .xv-btn {
+    @apply inline-flex items-center gap-1 rounded-sm border border-chrome-line bg-white
+      px-2.5 py-1.5 text-[13px] leading-none text-ink transition-colors
+      hover:border-accent hover:text-accent;
+  }
+
+  .xv-btn-dark {
+    @apply bg-chrome-dark text-white border-chrome-dark hover:bg-accent hover:border-accent hover:text-white;
+  }
+}
