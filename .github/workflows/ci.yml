@@ -17,7 +17,15 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci || npm install
+        # Regenerate the lockfile when it is absent or out of sync with
+        # package.json (a lockfile created on one OS lacks the optional
+        # platform binaries other OSes need), then install strictly.
+        run: |
+          if [ ! -f package-lock.json ] || ! npm ci --dry-run >/dev/null 2>&1; then
+            echo "Lockfile missing or stale -> regenerating"
+            npm install --package-lock-only
+          fi
+          npm ci
 
       - name: Type-check + build
         run: npm run build
