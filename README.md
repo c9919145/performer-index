@@ -189,6 +189,7 @@ This repo already ships the fallback config for each host — no manual setup:
 | `netlify.toml` | Netlify | build `npm run build`, publish `dist` |
 | `vercel.json` | Vercel | build `npm run build`, output `dist`, rewrite all routes |
 | `nginx.conf.example` | nginx / any web server | `try_files` snippet to copy into your server block |
+| `.github/workflows/pages.yml` | GitHub Pages | build with subpath base, run tests, publish `dist/` via Actions |
 
 Build and deploy:
 
@@ -211,6 +212,49 @@ If deployment credentials are available and deployment is authorized, run the
 commands above against the target platform; no environment variables are
 required for the sample build.
 
+### GitHub Pages
+
+This project is **deployed** to GitHub Pages at:
+
+**https://c9919145.github.io/performer-index/**
+
+It is a **project site**, served from the `/<repo>/` subpath rather than the
+domain root. That matters for two reasons, both already handled:
+
+1. **Asset URLs.** The Pages workflow sets `VITE_BASE=/performer-index/`, so
+   Vite prefixes every asset URL with the subpath. `vite.config.ts` reads
+   `VITE_BASE` (defaulting to `/`) — local dev is unaffected.
+2. **Client-side routing.** `src/main.tsx` derives React Router's `basename`
+   from `import.meta.env.BASE_URL`. Without it, `useNavigate()` treats paths as
+   root-relative and navigation escapes the subpath, producing 404s on search
+   and links. This bug does **not** reproduce at base `/`, so it must be tested
+   against a subpath build (see below).
+
+The workflow (`.github/workflows/pages.yml`) runs on every push to `main`:
+install → build with the subpath base → `npm test` → copy `index.html` to
+`404.html` for the deep-link fallback → publish via `actions/deploy-pages`.
+
+GitHub Pages has no rewrite rules, so the SPA fallback is the `404.html` copy:
+Pages serves it for unmatched paths, which loads the app and lets the router
+resolve the route client-side.
+
+To set this up on a fresh fork: push to `main`, then enable Pages with
+**Source: GitHub Actions** (Settings → Pages, or
+`gh api -X POST repos/<owner>/<repo>/pages -f build_type=workflow`). Adjust
+`VITE_BASE` in the workflow if your repository name differs.
+
+**Verifying a subpath build locally.** Because the subpath is where routing
+bugs hide, test the real deploy artifact rather than the dev server:
+
+```bash
+VITE_BASE=/performer-index/ npm run build
+cp dist/index.html dist/404.html
+mkdir -p /tmp/subpath/performer-index && cp -R dist/* /tmp/subpath/performer-index/
+# serve /tmp/subpath and map unknown paths to 404.html, then open
+# http://localhost:PORT/performer-index/pornstars-index/usa
+# and confirm search keeps /performer-index/ in the URL.
+```
+
 ### Docker
 
 A multi-stage `Dockerfile` builds the app and serves the static output with
@@ -230,3 +274,8 @@ revalidating `index.html`.
 
 `.github/workflows/ci.yml` runs on every push and pull request: `npm ci`,
 `npm run build`, `npm test`, then uploads `dist/` as a build artifact.
+
+Note: CI does **not** use `actions/setup-node`'s `cache: npm`, because the
+cache requires a committed `package-lock.json` and fails hard when one is
+absent. The install step regenerates a lockfile when needed; on a networked
+machine you can commit one and re-enable caching.
