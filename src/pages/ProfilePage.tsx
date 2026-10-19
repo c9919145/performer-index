@@ -3,8 +3,15 @@ import { Link, useParams } from "react-router-dom";
 import { getPerformerBySlug, globalRank, sortPerformers } from "../data/repository";
 import { TYPE_LABELS } from "../types";
 import { performers } from "../data/performers";
+import {
+  MAX_VIDEOS_PER_PERFORMER,
+  formatDuration,
+  formatViews,
+  getVideosForPerformer,
+} from "../data/videos";
 import { AvatarPlaceholder } from "../components/Avatar";
 import { FlagBadge } from "../components/Flag";
+import { VideoThumbnailPlaceholder } from "../components/VideoThumbnail";
 
 /**
  * Performer profile page.
@@ -29,6 +36,10 @@ export function ProfilePage() {
       "subs-year",
     ).slice(0, 8);
   }, [performer]);
+  const videos = useMemo(
+    () => (performer ? getVideosForPerformer(performer.slug) : []),
+    [performer],
+  );
 
   if (!performer) {
     return (
@@ -126,6 +137,56 @@ export function ProfilePage() {
           </p>
         </div>
       </div>
+
+      {videos.length > 0 && (
+        <section aria-labelledby="videos-heading" className="mt-6">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="videos-heading" className="text-base font-bold text-ink">
+              Videos
+            </h2>
+            <p className="text-[13px] text-ink-soft">
+              Showing {videos.length.toLocaleString("en-US")} most-viewed of{" "}
+              {performer.videoCount.toLocaleString("en-US")} total
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-2 gap-y-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            {videos.map((v) => (
+              <article key={v.id} className="thumb-block">
+                <VideoThumbnailPlaceholder
+                  title={v.title}
+                  hue={v.thumbnailHue}
+                  durationLabel={formatDuration(v.durationSeconds)}
+                />
+                <h3
+                  className="line-clamp-2 pt-1 text-[13px] font-normal leading-tight text-ink"
+                  title={v.title}
+                >
+                  {v.title}
+                </h3>
+                <p className="pt-0.5 text-[12px] leading-tight text-ink-soft">
+                  <span>{formatViews(v.views)} views</span>
+                  <span aria-hidden="true"> · </span>
+                  <time dateTime={new Date(v.publishedAt).toISOString()}>
+                    {new Date(v.publishedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </time>
+                </p>
+              </article>
+            ))}
+          </div>
+
+          {performer.videoCount > MAX_VIDEOS_PER_PERFORMER && (
+            <p className="mt-3 text-[12px] text-ink-faint">
+              Video metadata is fictional sample data; this build caps the list at{" "}
+              {MAX_VIDEOS_PER_PERFORMER} entries per profile.
+            </p>
+          )}
+        </section>
+      )}
 
       <section aria-labelledby="related-heading" className="mt-6">
         <h2 id="related-heading" className="mb-3 text-base font-bold text-ink">

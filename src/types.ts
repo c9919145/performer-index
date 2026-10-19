@@ -50,6 +50,30 @@ export interface Performer {
   bio: string;
 }
 
+/**
+ * A single video entry attached to a performer profile.
+ *
+ * Fictional sample data: these are metadata records only. There is no media
+ * file and no external URL — `thumbnailHue` feeds a locally rendered
+ * placeholder tile, exactly like `Performer.avatarHue`.
+ */
+export interface Video {
+  /** Stable identifier, unique per dataset */
+  id: string;
+  /** Slug of the owning performer */
+  performerSlug: string;
+  /** Fictional video title */
+  title: string;
+  /** Duration in seconds */
+  durationSeconds: number;
+  /** View count, used to order the profile's video list */
+  views: number;
+  /** Epoch ms of publication */
+  publishedAt: number;
+  /** Deterministic hue used to render the placeholder thumbnail */
+  thumbnailHue: number;
+}
+
 export interface DirectoryQuery {
   /** Free-text search on performer name */
   q: string;

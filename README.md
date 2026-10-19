@@ -25,6 +25,7 @@ Reference anatomy studied from the live page:
 | Pagination above **and** below the grid (numbered + ellipsis + Next) | `src/components/Pagination.tsx` |
 | Footer link row + slogan | `src/components/Footer.tsx` |
 | Profile page with breadcrumb and back navigation | `src/pages/ProfilePage.tsx` |
+| Video grid on each profile (16:9 thumb, duration badge, views, date) | `src/components/VideoThumbnail.tsx` + `src/data/videos.ts` |
 
 ## Requirements
 
@@ -91,9 +92,11 @@ src/
     countries.ts        Country list + geographic scopes
     names.ts            Invented name pools for the sample dataset
     performers.ts       Deterministic fictional dataset (seeded PRNG, 1,400 profiles)
+    videos.ts           Deterministic fictional video metadata (seeded PRNG)
     repository.ts       Query layer: filter, sort, paginate, lookups
   components/           Header, MainNav, FilterBar, AlphabetNav, Dropdown,
-                        PerformerCard, Pagination, Avatar, Flag, Footer
+                        PerformerCard, Pagination, Avatar, Flag, Footer,
+                        VideoThumbnail
   pages/                DirectoryPage, ProfilePage
   App.tsx               Shell + router
   test/                 Test setup + UI integration tests
@@ -131,6 +134,19 @@ CREATE INDEX performers_country_idx  ON performers (country_code);
 CREATE INDEX performers_type_idx     ON performers (type);
 CREATE INDEX performers_year_idx     ON performers (subscribers_year DESC);
 CREATE INDEX performers_name_idx     ON performers (lower(name));
+
+CREATE TABLE videos (
+  id                 BIGSERIAL PRIMARY KEY,
+  performer_id       BIGINT NOT NULL REFERENCES performers(id) ON DELETE CASCADE,
+  title              TEXT NOT NULL,
+  duration_seconds   INTEGER NOT NULL,
+  views              BIGINT NOT NULL DEFAULT 0,
+  published_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  thumbnail_url      TEXT,
+  media_url          TEXT
+);
+CREATE INDEX videos_performer_idx  ON videos (performer_id);
+CREATE INDEX videos_views_idx      ON videos (performer_id, views DESC);
 ```
 
 ## Accessibility & performance
@@ -141,9 +157,12 @@ CREATE INDEX performers_name_idx     ON performers (lower(name));
 - `aria-current="page"` on the active pagination item; `aria-pressed` on
   alphabet toggles; `aria-live="polite"` on the results region.
 - Visible focus rings on every interactive element.
-- Fixed aspect-ratio placeholders (4:3) prevent layout shift; no network
-  image requests in the sample build. Replacing placeholders with real images
-  should keep explicit `width`/`height` and `loading="lazy"`.
+- Fixed aspect-ratio placeholders (4:3 profile, 16:9 video) prevent layout
+  shift; no network image requests in the sample build. Replacing placeholders
+  with real images should keep explicit `width`/`height` and `loading="lazy"`.
+- Video tiles use `<article>` with a level-3 heading per title and a `<time
+  datetime>` element for the publication date, so the grid is navigable by
+  heading and machine-readable for dates.
 - Pagination keeps the DOM small even with a large directory.
 
 ## Responsive behavior
@@ -168,12 +187,39 @@ scrolling.
   retains an "Image unavailable" branch for when authorized <img> assets are
   introduced.
 
+## Video metadata on profiles
+
+Each profile page renders a **Videos** section: a responsive 16:9 thumbnail grid
+with a duration badge, title, view count, and publication date, ordered by
+views (highest first). The heading line reports how many entries are shown
+versus the performer's total `videoCount`.
+
+This is **metadata only** — there is no media file, no `<video>` element, and no
+external URL. Titles are assembled from invented word fragments and thumbnails
+are rendered locally as SVG, so the sample build makes no third-party requests
+and can never produce a broken image. See `src/data/videos.ts`.
+
+- The dataset is deterministic (seeded PRNG, like the performer dataset) and
+  generated once at module load.
+- Every performer gets between `MIN_VIDEOS_PER_PERFORMER` (6) and
+  `MAX_VIDEOS_PER_PERFORMER` (24) entries. The cap keeps generation and DOM size
+  bounded — `videoCount` is a ranking metric that can reach the thousands, and
+  rendering that many tiles would be pointless for a sample build. The profile
+  page shows the cap-aware count line so the relationship is never misleading.
+- `formatDuration()` renders `M:SS` or `H:MM:SS`; `formatViews()` renders
+  compact `K`/`M` counts.
+- To attach real media, swap `VideoThumbnailPlaceholder` for an `<img>`/`<video>`
+  keeping the same 16:9 wrapper, and replace `getVideosForPerformer()` with a
+  real query. `Video` in `src/types.ts` is the contract.
+
 ## Testing
 
-`npm test` covers the data layer (filtering, sorting, pagination, lookups,
-empty states) and the UI (heading label, 100-card page size, pagination
-controls, empty state, alphabet filtering via clicks, profile navigation,
-breadcrumb, not-found state).
+`npm test` (Vitest + Testing Library) covers the data layer (filtering,
+sorting, pagination, lookups, empty states), the video layer (deterministic
+generation, unique ids, per-performer floor and cap, view ordering, duration and
+view formatting, unknown-slug handling), and the UI (heading label, 100-card page
+size, pagination controls, empty state, alphabet filtering via clicks, profile
+navigation, breadcrumb, video grid rendering, not-found state).
 
 ## Deployment
 
